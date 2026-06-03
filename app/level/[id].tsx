@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface Word {
   id: string;
   english: string;
-  chinese: string;
+  meanings: string[];
 }
 
 export default function LevelDetailScreen() {
@@ -19,11 +20,19 @@ export default function LevelDetailScreen() {
     loadLevelData();
   }, [id]);
 
+  // ── 旧数据兼容迁移 ──
+  const migrateWord = (raw: any): Word => {
+    if (Array.isArray(raw.meanings)) {
+      return { ...raw, meanings: raw.meanings.map((m: string) => m.trim()).filter(Boolean) };
+    }
+    return { id: raw.id, english: raw.english, meanings: [raw.chinese?.trim()].filter(Boolean) };
+  };
+
   const loadLevelData = async () => {
     try {
       const stored = await AsyncStorage.getItem('memory_words');
       if (stored) {
-        const allWords: Word[] = JSON.parse(stored);
+        const allWords: Word[] = JSON.parse(stored).map(migrateWord);
         const chunked: Word[][] = [];
         for (let i = 0; i < allWords.length; i += 10) {
           chunked.push(allWords.slice(i, i + 10));
@@ -51,7 +60,6 @@ export default function LevelDetailScreen() {
     const nodes: React.ReactNode[] = [];
 
     levelWords.forEach((word, index) => {
-      // 单词节点
       nodes.push(
         <Text
           key={`w-${word.id}`}
@@ -65,7 +73,6 @@ export default function LevelDetailScreen() {
         </Text>
       );
 
-      // 斜杠分隔符（非最后一个）
       if (index < levelWords.length - 1) {
         nodes.push(
           <Text
@@ -96,12 +103,16 @@ export default function LevelDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── 顶部导航 ── */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
           <FontAwesome5 name="arrow-left" size={13} color="#000" />
           <Text style={styles.backBtnText}>返回</Text>
         </TouchableOpacity>
@@ -163,6 +174,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 12,
     paddingBottom: 8,
+    zIndex: 10,
+    elevation: 10,
+    backgroundColor: '#FFFFFF',
   },
   backBtn: {
     flexDirection: 'row',

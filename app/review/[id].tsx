@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,7 +13,7 @@ import { playWord } from '../../src/services/audioService';
 interface Word {
   id: string;
   english: string;
-  chinese: string;
+  meanings: string[];
   exampleEn?: string;
   exampleZh?: string;
 }
@@ -83,6 +84,14 @@ export default function ReviewScreen() {
   const wordsRef = useRef<Word[]>([]);
   wordsRef.current = words;
 
+  // ── 旧数据兼容迁移 ──
+  const migrateWord = (raw: any): Word => {
+    if (Array.isArray(raw.meanings)) {
+      return { ...raw, meanings: raw.meanings.map((m: string) => m.trim()).filter(Boolean) };
+    }
+    return { id: raw.id, english: raw.english, meanings: [raw.chinese?.trim()].filter(Boolean) };
+  };
+
   // ── 加载单词数据 ──
   useEffect(() => {
     let cancelled = false;
@@ -90,7 +99,7 @@ export default function ReviewScreen() {
       try {
         const stored = await AsyncStorage.getItem('memory_words');
         if (stored && !cancelled) {
-          const allWords: Word[] = JSON.parse(stored);
+          const allWords: Word[] = JSON.parse(stored).map(migrateWord);
           const chunked: Word[][] = [];
           for (let i = 0; i < allWords.length; i += 10) {
             chunked.push(allWords.slice(i, i + 10));
@@ -134,7 +143,7 @@ export default function ReviewScreen() {
                 ? {
                     ...w,
                     exampleEn: `This is an example with ${word.english}.`,
-                    exampleZh: `这是一个包含"${word.chinese}"的例句。`,
+                    exampleZh: `这是一个包含"${word.meanings[0] || ''}"的例句。`,
                   }
                 : w
             )
@@ -213,7 +222,7 @@ export default function ReviewScreen() {
   const exampleReady = !!currentWord.exampleEn;
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── 顶部导航 ── */}
@@ -221,6 +230,7 @@ export default function ReviewScreen() {
         <TouchableOpacity
           style={styles.backBtn}
           onPress={handleBack}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <FontAwesome5 name="arrow-left" size={13} color="#000000" />
           <Text style={styles.backBtnText}>返回</Text>
@@ -289,7 +299,7 @@ export default function ReviewScreen() {
                 <View style={styles.posTag}>
                   <Text style={styles.posText}>n.</Text>
                 </View>
-                <Text style={styles.defText}>{currentWord.chinese}</Text>
+                <Text style={styles.defText}>{currentWord.meanings.join('、')}</Text>
               </View>
 
               {/* 例句模块 */}
@@ -400,6 +410,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 8,
+    zIndex: 10,
+    elevation: 10,
+    backgroundColor: '#FFFFFF',
   },
   backBtn: {
     flexDirection: 'row',
