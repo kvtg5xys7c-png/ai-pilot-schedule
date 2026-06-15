@@ -191,7 +191,7 @@ export default function MemoryScreen() {
     const cleaned = meanings.map(m => m.trim()).filter(m => m.length > 0);
     if (!inputText.trim() || cleaned.length === 0) return;
     const newWord = { id: Date.now().toString(), english: inputText.trim(), meanings: cleaned };
-    setWords((prev) => [newWord, ...prev]);
+    setWords((prev) => [...prev, newWord]);
     setInputText('');
     setMeanings(['']);
     Alert.alert('成功', '卡片已保存！');
@@ -256,8 +256,8 @@ export default function MemoryScreen() {
                 </TouchableOpacity>
               </View>
             ) : (
-              levels.map((levelWords, levelIndex) => {
-                const levelNum = levelIndex + 1;
+              levels.reverse().map((levelWords, levelIndex) => {
+                const levelNum = levels.length - levelIndex;
                 const stars = levelStars[levelNum] || 0;
                 const isExpanded = expandedLevels.has(levelNum);
 
